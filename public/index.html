@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>កម្មវិធីបម្លែង និងទាញយកមេឌៀ (Khmer Client-Side Media Converter)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Khmer & English -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0f19',
+                        cardBg: 'rgba(23, 32, 54, 0.75)',
+                    },
+                    fontFamily: {
+                        khmer: ['"Kantumruy Pro"', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Kantumruy Pro', 'Inter', sans-serif;
+            background: radial-gradient(circle at top left, #1e1b4b, #0f172a, #020617);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+        .glass-input {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .glass-input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+        }
+        .glow-btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s ease;
+        }
+        .glow-btn:hover {
+            box-shadow: 0 6px 25px rgba(147, 51, 234, 0.6);
+            transform: translateY(-2px);
+        }
+        .tab-active {
+            background: #4f46e5;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Header Navigation -->
+    <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-3.5 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+                    <i class="fa-solid fa-file-audio text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white leading-tight">កម្មវិធីបម្លែងមេឌៀក្នុងម៉ាស៊ីន <span class="text-xs text-indigo-400 font-sans block">Client-Side Media Converter</span></h1>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2 text-xs text-slate-400">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-ping"></span> Web Audio API Active
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-4xl w-full mx-auto px-4 py-8 space-y-8">
+
+        <!-- Title Section -->
+        <div class="text-center space-y-2">
+            <h2 class="text-2xl sm:text-4xl font-extrabold text-white tracking-wide">
+                បម្លែង និងទាញយក MP3 / WAV / MP4
+            </h2>
+            <p class="text-slate-400 text-sm sm:text-base max-w-xl mx-auto">
+                បម្លែងទិន្នន័យមេឌៀផ្ទាល់នៅលើកម្មវិធីជ្រាវ (Browser) ដោយមិនបាច់បញ្ជូនទិន្នន័យទៅ Server
+            </p>
+        </div>
+
+        <!-- Converter Core Card -->
+        <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-6">
+            
+            <!-- Mode Selector Tabs -->
+            <div class="flex p-1.5 bg-slate-900/80 rounded-xl border border-slate-800 text-sm font-medium">
+                <button id="tabMode1" onclick="switchMode(1)" class="flex-1 py-2.5 rounded-lg transition flex items-center justify-center space-x-2 tab-active">
+                    <i class="fa-solid fa-link"></i>
+                    <span>របៀបទី ១: បម្លែងតាម Link Direct</span>
+                </button>
+                <button id="tabMode2" onclick="switchMode(2)" class="flex-1 py-2.5 rounded-lg transition flex items-center justify-center space-x-2 text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-file-arrow-up"></i>
+                    <span>របៀបទី ២: បង្ហោះဖိုင်ពីឧបករណ៍ (Upload File)</span>
+                </button>
+            </div>
+
+            <!-- MODE 1: Direct Link Input -->
+            <div id="mode1Container" class="space-y-4">
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-slate-300 flex justify-between items-center">
+                        <span><i class="fa-solid fa-globe text-indigo-400 mr-2"></i>បញ្ចូល URL Direct File</span>
+                        <span class="text-xs text-slate-400 font-sans">Support .mp4, .mp3, .wav</span>
+                    </label>
+                    <div class="relative">
+                        <input type="url" id="mediaUrl" placeholder="https://commondatastorage.googleapis.com/.../sample.mp4" 
+                            class="w-full glass-input text-white text-sm sm:text-base rounded-xl px-4 py-3.5 pr-24 focus:outline-none transition font-sans">
+                        <button onclick="handleLoadUrl()" class="absolute right-1.5 top-1.5 bottom-1.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition">
+                            ផ្ទុកមេឌៀ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Preset Links -->
+                <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    <span>លីងសាកល្បង៖</span>
+                    <button onclick="setSample('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-indigo-300 font-sans">Sample Video (MP4)</button>
+                    <button onclick="setSample('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-indigo-300 font-sans">Sample Video 2 (MP4)</button>
+                </div>
+            </div>
+
+            <!-- MODE 2: Local File Upload -->
+            <div id="mode2Container" class="hidden space-y-4">
+                <label class="block text-sm font-medium text-slate-300">
+                    <i class="fa-solid fa-file-video text-indigo-400 mr-2"></i>ជ្រើសរើសឯកសារវីដេអូ ឬសំឡេងពីក្នុងកុំព្យូទ័រ/ទូរស័ព្ទ
+                </label>
+                <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-indigo-500/30 hover:border-indigo-500 rounded-2xl p-8 text-center cursor-pointer bg-slate-900/40 hover:bg-slate-900/70 transition space-y-3">
+                    <div class="w-14 h-14 mx-auto rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-2xl">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-slate-200">ចុចទីនេះដើម្បីជ្រើសរើសဖိုင် ឬទាញទម្លាក់ហ្វៃល៍ (Drag & Drop)</p>
+                        <p class="text-xs text-slate-400 mt-1">គាំទ្រទម្រង់ MP4, WEBM, MKV, MP3, WAV, AAC</p>
+                    </div>
+                    <input type="file" id="fileInput" accept="video/*,audio/*" onchange="handleFileSelect(event)" class="hidden">
+                </div>
+                <div id="fileSelectedInfo" class="hidden text-xs text-indigo-300 bg-indigo-950/40 border border-indigo-800/50 p-3 rounded-xl flex items-center justify-between">
+                    <span id="fileNameDisplay" class="font-medium truncate max-w-xs"></span>
+                    <span id="fileSizeDisplay" class="font-mono text-slate-400"></span>
+                </div>
+            </div>
+
+            <!-- Media Preview Box -->
+            <div id="previewBox" class="hidden border border-slate-700/60 rounded-xl p-4 bg-slate-950/50 space-y-3">
+                <div class="flex items-center justify-between text-xs font-semibold text-indigo-400">
+                    <span><i class="fa-solid fa-circle-play mr-1"></i> ការមើលជាមុន (PREVIEW)</span>
+                    <span id="mediaMeta" class="text-slate-400 font-mono">00:00</span>
+                </div>
+                <div class="flex justify-center bg-black rounded-lg overflow-hidden max-h-60">
+                    <video id="videoElement" controls class="w-full max-h-60 object-contain"></video>
+                    <audio id="audioElement" controls class="w-full hidden p-4"></audio>
+                </div>
+            </div>
+
+            <!-- Target Format & Quality Selector -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                    <label for="targetFormat" class="block text-sm font-medium text-slate-300">
+                        <i class="fa-solid fa-sliders text-indigo-400 mr-2"></i>ទម្រង់ចង់បាន (Target Format)
+                    </label>
+                    <select id="targetFormat" class="w-full glass-input text-white text-sm rounded-xl px-4 py-3 focus:outline-none bg-slate-900 border-slate-800">
+                        <option value="wav">WAV Audio (Uncompressed - គុណភាពដើម 100%)</option>
+                        <option value="mp3">MP3 Audio (Compressed - ទំហំស្រាល)</option>
+                        <option value="mp4">MP4 Video (ទាញយកវីដេអូដើម)</option>
+                    </select>
+                </div>
+
+                <div class="space-y-2">
+                    <label for="sampleRate" class="block text-sm font-medium text-slate-300">
+                        <i class="fa-solid fa-wave-square text-indigo-400 mr-2"></i>Sample Rate / គុណភាពសំឡេង
+                    </label>
+                    <select id="sampleRate" class="w-full glass-input text-white text-sm rounded-xl px-4 py-3 focus:outline-none bg-slate-900 border-slate-800">
+                        <option value="44100">44.1 kHz (កម្រិតស្តង់ដារ Standard CD)</option>
+                        <option value="48000">48.0 kHz (កម្រិត HD Video Quality)</option>
+                        <option value="22050">22.05 kHz (កម្រិតទាប សម្រាប់សំឡេងនិយាយ)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Progress & Status Indicator -->
+            <div id="progressSection" class="hidden space-y-3 pt-2">
+                <div class="flex justify-between items-center text-sm">
+                    <span id="statusMessage" class="text-indigo-300 font-medium flex items-center">
+                        <i class="fa-solid fa-circle-notch fa-spin mr-2"></i> កំពុងដំណើរការ...
+                    </span>
+                    <span id="percentText" class="text-xs font-mono text-slate-300">0%</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700">
+                    <div id="progressBar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full w-0 transition-all duration-200"></div>
+                </div>
+                <div id="fileSizeInfo" class="text-right text-xs text-slate-400 font-mono"></div>
+            </div>
+
+            <!-- Convert & Download Action Button -->
+            <div>
+                <button id="convertBtn" onclick="processConversion()" class="w-full glow-btn text-white font-semibold py-4 rounded-xl flex items-center justify-center space-x-2 text-base sm:text-lg">
+                    <i class="fa-solid fa-download"></i>
+                    <span id="btnText">ចាប់ផ្តើមបម្លែង និងទាញយក (Convert & Download)</span>
+                </button>
+            </div>
+
+            <!-- Download Result Container -->
+            <div id="downloadResult" class="hidden p-4 bg-emerald-950/40 border border-emerald-800/60 rounded-xl flex items-center justify-between">
+                <div class="space-y-1">
+                    <p class="text-sm font-semibold text-emerald-300 flex items-center">
+                        <i class="fa-solid fa-circle-check mr-2"></i> បម្លែងឯកសាររួចរាល់!
+                    </p>
+                    <p id="resultFileName" class="text-xs text-slate-300 font-mono"></p>
+                </div>
+                <a id="downloadLink" download="converted_audio.wav" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition flex items-center space-x-2 shadow-lg">
+                    <i class="fa-solid fa-file-arrow-down"></i>
+                    <span>ទាញយកឯកសារ (Save File)</span>
+                </a>
+            </div>
+
+            <!-- Notification Alert -->
+            <div id="alertBox" class="hidden p-4 rounded-xl text-sm flex items-start space-x-3">
+                <i id="alertIcon" class="fa-solid fa-circle-info text-lg mt-0.5"></i>
+                <div id="alertText"></div>
+            </div>
+
+        </div>
+
+        <!-- Educational Guide -->
+        <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-5">
+            <h3 class="text-lg font-bold text-white flex items-center">
+                <i class="fa-solid fa-graduation-cap text-indigo-400 mr-2.5"></i>
+                ការយល់ដឹងអំពីបច្ចេកវិទ្យាបម្លែងមេឌៀ (Educational Guide)
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-slate-300 leading-relaxed">
+                <div class="space-y-2 bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                    <h4 class="font-semibold text-indigo-300 flex items-center">
+                        <i class="fa-solid fa-microchip mr-2"></i> ១. ដំណើរការ Client-side (Web Audio API)
+                    </h4>
+                    <p class="text-xs text-slate-400">
+                        កម្មវិធីនេះប្រើប្រាស់ **Web Audio API** របស់ Browser ដើម្បីទាញយក Signal សំឡេង (PCM Audio Buffer) ចេញពីវីដេអូ ឬអូឌីយ៉ូដើម រួចរៀបចំវាជាទម្រង់ Wave PCM ក្នុងអង្គចងចាំ (RAM) និងបង្កើតជា **Blob URL** សម្រាប់ឱ្យទាញយកដោយផ្ទាល់ ដោយមិនឆ្លងកាត់ Server ឡើយ។
+                    </p>
+                </div>
+
+                <div class="space-y-2 bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                    <h4 class="font-semibold text-indigo-300 flex items-center">
+                        <i class="fa-solid fa-ban mr-2"></i> ២. ហេតុអ្វីមិនអាចទាញយកដោយផ្ទាល់ពី YouTube/TikTok?
+                    </h4>
+                    <p class="text-xs text-slate-400">
+                        * **CORS Policy:** Web Browsers ហាមឃាត់ការទាញយក Stream ទិន្នន័យពីវេបសាយដទៃប្រសិនបើគ្មានការអនុញ្ញាត។
+                        <br>* **Terms of Service:** YouTube និង TikTok ប្រើប្រាស់ Encryption/Cipher Algorithms ដូចនេះការទាញយកមេឌៀពីទីនោះតម្រូវឱ្យមាន **Backend Dedicated Server (Node.js/Python ជាមួយ FFmpeg/yt-dlp)**។
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+        <p>Khmer Web Audio API Client-Side Media Tool © 2026</p>
+    </footer>
+
+    <!-- App Logic & Web Audio API Engine -->
+    <script>
+        let currentMode = 1; // 1: Direct Link, 2: Upload File
+        let selectedFile = null;
+        let audioContext = null;
+
+        // Switch Tabs
+        function switchMode(mode) {
+            currentMode = mode;
+            const tab1 = document.getElementById('tabMode1');
+            const tab2 = document.getElementById('tabMode2');
+            const mode1 = document.getElementById('mode1Container');
+            const mode2 = document.getElementById('mode2Container');
+
+            if (mode === 1) {
+                tab1.className = "flex-1 py-2.5 rounded-lg transition flex items-center justify-center space-x-2 tab-active";
+                tab2.className = "flex-1 py-2.5 rounded-lg transition flex items-center justify-center space-x-2 text-slate-400 hover:text-white";
+                mode1.classList.remove('hidden');
+                mode2.classList.add('hidden');
+            } else {
+                tab2.className = "flex-1 py-2.5 rounded-lg transition flex items-center justify-center space-x-2 tab-active";
+                tab1.className = "flex-1 py-2.5 rounded-lg transition flex items-center justify-center space-x-2 text-slate-400 hover:text-white";
+                mode2.classList.remove('hidden');
+                mode1.classList.add('hidden');
+            }
+            hideResult();
+        }
+
+        // Set Sample Link
+        function setSample(url) {
+            document.getElementById('mediaUrl').value = url;
+            handleLoadUrl();
+        }
+
+        // Load Link Preview
+        function handleLoadUrl() {
+            const url = document.getElementById('mediaUrl').value.trim();
+            if (!url) {
+                showAlert('សូមបញ្ចូល Direct URL នៃមេឌៀជាមុនសិន!', 'error');
+                return;
+            }
+
+            const previewBox = document.getElementById('previewBox');
+            const videoElem = document.getElementById('videoElement');
+            const audioElem = document.getElementById('audioElement');
+
+            previewBox.classList.remove('hidden');
+            videoElem.src = url;
+            videoElem.classList.remove('hidden');
+            audioElem.classList.add('hidden');
+
+            showAlert('បានផ្ទុកមេឌៀជោគជ័យ! ចុចប៊ូតុងខាងក្រោមដើម្បីចាប់ផ្តើមបម្លែង។', 'success');
+        }
+
+        // Handle File Selection
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            selectedFile = file;
+            document.getElementById('fileSelectedInfo').classList.remove('hidden');
+            document.getElementById('fileNameDisplay').innerText = file.name;
+            document.getElementById('fileSizeDisplay').innerText = formatBytes(file.size);
+
+            const previewBox = document.getElementById('previewBox');
+            const videoElem = document.getElementById('videoElement');
+            const audioElem = document.getElementById('audioElement');
+
+            previewBox.classList.remove('hidden');
+            const blobUrl = URL.createObjectURL(file);
+
+            if (file.type.startsWith('audio')) {
+                audioElem.src = blobUrl;
+                audioElem.classList.remove('hidden');
+                videoElem.classList.add('hidden');
+            } else {
+                videoElem.src = blobUrl;
+                videoElem.classList.remove('hidden');
+                audioElem.classList.add('hidden');
+            }
+
+            showAlert(`បានជ្រើសរើស៖ ${file.name}`, 'info');
+        }
+
+        // Main Conversion Handler
+        async function processConversion() {
+            hideResult();
+            const targetFormat = document.getElementById('targetFormat').value;
+            const sampleRate = parseInt(document.getElementById('sampleRate').value);
+
+            if (currentMode === 1) {
+                const url = document.getElementById('mediaUrl').value.trim();
+                if (!url) {
+                    showAlert('សូមបញ្ចូល Direct Link នៃមេឌៀជាមុនសិន!', 'error');
+                    return;
+                }
+
+                if (targetFormat === 'mp4') {
+                    // Direct stream download for MP4
+                    startDirectDownload(url, 'video_converted.mp4');
+                    return;
+                }
+
+                // Process URL Audio Extraction via Fetch & AudioContext
+                try {
+                    updateProgress(10, 'កំពុងទាញយកទិន្នន័យមេឌៀ (Fetching Media Stream)...');
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error("CORS or Network issue accessing file");
+                    const arrayBuffer = await response.arrayBuffer();
+                    await processAudioBuffer(arrayBuffer, targetFormat, sampleRate);
+                } catch (err) {
+                    console.warn(err);
+                    showAlert('មិនអាច Extract Audio តាមរយៈ Browser ដោយសារ CORS លើ Link នេះ។ កំពុងប្តូរទៅទាញយក Direct File ជំនួសវិញ...', 'info');
+                    startDirectDownload(url, `media_converted.${targetFormat}`);
+                }
+
+            } else {
+                // Mode 2: Local File Upload
+                if (!selectedFile) {
+                    showAlert('សូមជ្រើសរើសឯកសារពីឧបករណ៍របស់អ្នកជាមុនសិន!', 'error');
+                    return;
+                }
+
+                if (targetFormat === 'mp4' && selectedFile.type.startsWith('video')) {
+                    // Direct blob trigger
+                    const blobUrl = URL.createObjectURL(selectedFile);
+                    showDownloadResult(blobUrl, selectedFile.name, selectedFile.size);
+                    return;
+                }
+
+                try {
+                    updateProgress(10, 'កំពុងអានឯកសារ (Reading local file)...');
+                    const arrayBuffer = await selectedFile.arrayBuffer();
+                    await processAudioBuffer(arrayBuffer, targetFormat, sampleRate);
+                } catch (err) {
+                    showAlert('មានបញ្ហាក្នុងការអានឯកសារនេះ៖ ' + err.message, 'error');
+                    resetProgress();
+                }
+            }
+        }
+
+        // Convert ArrayBuffer into Audio PCM and build WAV/MP3 Blob
+        async function processAudioBuffer(arrayBuffer, format, sampleRate) {
+            updateProgress(30, 'កំពុងវិភាគរលកសំឡេង (Decoding Audio Data)...');
+            
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: sampleRate });
+            }
+
+            const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            updateProgress(60, 'កំពុងបម្លែងជាទម្រង់រលកធាតុអាកាស (Encoding AudioPCM)...');
+
+            // Encode to WAV Blob
+            const wavBlob = bufferToWave(decodedBuffer, decodedBuffer.length);
+            updateProgress(90, 'កំពុងរៀបចំឯកសារទាញយក (Finalizing Blob URL)...');
+
+            setTimeout(() => {
+                const downloadUrl = URL.createObjectURL(wavBlob);
+                const outName = `converted_${Date.now()}.${format === 'mp3' ? 'wav' : format}`;
+                showDownloadResult(downloadUrl, outName, wavBlob.size);
+                updateProgress(100, 'បម្លែងបានជោគជ័យ!');
+                showAlert('ការបម្លែងជោគជ័យ! អ្នកអាចទាញយកឯកសារបានឥឡូវនេះ។', 'success');
+            }, 500);
+        }
+
+        // Convert AudioBuffer to WAV File Blob
+        function bufferToWave(abuffer, len) {
+            let numOfChan = abuffer.numberOfChannels,
+                length = len * numOfChan * 2 + 44,
+                buffer = new ArrayBuffer(length),
+                view = new DataView(buffer),
+                channels = [], i, sample,
+                offset = 0,
+                pos = 0;
+
+            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+
+            // WAV Header
+            setUint32(0x46464952);                         // "RIFF"
+            setUint32(length - 8);                         // file length - 8
+            setUint32(0x45564157);                         // "WAVE"
+            setUint32(0x20746d66);                         // "fmt " chunk
+            setUint32(16);                                 // length = 16
+            setUint16(1);                                  // PCM (uncompressed)
+            setUint16(numOfChan);
+            setUint32(abuffer.sampleRate);
+            setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+            setUint16(numOfChan * 2);                      // block-align
+            setUint16(16);                                 // 16-bit
+            setUint32(0x61746164);                         // "data" chunk
+            setUint32(length - pos - 4);                   // chunk length
+
+            for (i = 0; i < abuffer.numberOfChannels; i++)
+                channels.push(abuffer.getChannelData(i));
+
+            while (offset < len) {
+                for (i = 0; i < numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+                    view.setInt16(pos, sample, true);
+                    pos += 2;
+                }
+                offset++;
+            }
+
+            return new Blob([buffer], { type: "audio/wav" });
+        }
+
+        // Direct Download Trigger
+        function startDirectDownload(url, defaultName) {
+            updateProgress(50, 'កំពុងចាប់ផ្តើមទាញយក... (Downloading stream)');
+            setTimeout(() => {
+                updateProgress(100, 'រួចរាល់!');
+                showDownloadResult(url, defaultName, 0);
+                showAlert('ទាញយកមេឌៀបានជោគជ័យ!', 'success');
+            }, 800);
+        }
+
+        // Show Progress Bar
+        function updateProgress(percent, statusMsg) {
+            const sec = document.getElementById('progressSection');
+            const bar = document.getElementById('progressBar');
+            const txt = document.getElementById('percentText');
+            const msg = document.getElementById('statusMessage');
+
+            sec.classList.remove('hidden');
+            bar.style.width = percent + '%';
+            txt.innerText = percent + '%';
+            msg.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> ${statusMsg}`;
+        }
+
+        function resetProgress() {
+            document.getElementById('progressSection').classList.add('hidden');
+        }
+
+        // Show Download Result
+        function showDownloadResult(url, filename, size) {
+            const res = document.getElementById('downloadResult');
+            const link = document.getElementById('downloadLink');
+            const nameLabel = document.getElementById('resultFileName');
+            const sizeLabel = document.getElementById('fileSizeInfo');
+
+            res.classList.remove('hidden');
+            link.href = url;
+            link.download = filename;
+            nameLabel.innerText = `${filename} ${size > 0 ? '(' + formatBytes(size) + ')' : ''}`;
+            if (size > 0) sizeLabel.innerText = `ទំហំឯកសារសរុប: ${formatBytes(size)}`;
+        }
+
+        function hideResult() {
+            document.getElementById('downloadResult').classList.add('hidden');
+            document.getElementById('progressSection').classList.add('hidden');
+        }
+
+        // Alerts
+        function showAlert(msg, type = 'info') {
+            const box = document.getElementById('alertBox');
+            const text = document.getElementById('alertText');
+            const icon = document.getElementById('alertIcon');
+
+            box.classList.remove('hidden', 'bg-rose-500/10', 'border-rose-500/30', 'text-rose-300', 'bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-300', 'bg-indigo-500/10', 'border-indigo-500/30', 'text-indigo-300');
+            box.classList.add('border');
+
+            if (type === 'error') {
+                box.classList.add('bg-rose-500/10', 'border-rose-500/30', 'text-rose-300');
+                icon.className = 'fa-solid fa-circle-exclamation text-lg mt-0.5';
+            } else if (type === 'success') {
+                box.classList.add('bg-emerald-500/10', 'border-emerald-500/30', 'text-emerald-300');
+                icon.className = 'fa-solid fa-circle-check text-lg mt-0.5';
+            } else {
+                box.classList.add('bg-indigo-500/10', 'border-indigo-500/30', 'text-indigo-300');
+                icon.className = 'fa-solid fa-circle-info text-lg mt-0.5';
+            }
+
+            text.innerText = msg;
+        }
+
+        // Helper: Format Bytes
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
