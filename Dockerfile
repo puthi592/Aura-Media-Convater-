@@ -1,25 +1,28 @@
-FROM python:3.10-slim
+# ប្រើប្រាស់ Node.js official image ជា base ព្រោះ project យើងជា Node.js app
+FROM node:18-slim
 
-# Install system dependencies, ffmpeg, and curl/nodejs
+# ដំឡើង Python3, pip, និង ffmpeg សម្រាប់ yt-dlp
 RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
     ffmpeg \
-    curl \
-    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# កំណត់ Working Directory
 WORKDIR /app
 
-# Copy package.json and install Node dependencies
+# ចម្លង package.json និងដំឡើង Node packages
 COPY package*.json ./
 RUN npm install
 
-# Copy all project files
+# ចម្លងកូដដែលសល់ទាំងអស់ចូល
 COPY . .
 
-# Upgrade yt-dlp to the latest version to bypass 429 / extraction issues
-RUN pip install --no-cache-dir --upgrade yt-dlp
+# អាប់ដេត yt-dlp ឱ្យជា Version ចុងក្រោយបំផុត ដើម្បីការពារ Error 429
+RUN pip3 install --no-cache-dir --upgrade yt-dlp
 
-# Expose port and start the application
+# เปิด Port 10000 សម្រាប់ Render
 EXPOSE 10000
+
+# ចាប់ផ្តើម Run Server
 CMD ["node", "server.js"]
