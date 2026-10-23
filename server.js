@@ -8,20 +8,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🚀 ឱ្យ Server អានဖိုင် HTML ផ្ទាល់ពីកន្លែងតែមួយ
-app.use(express.static(__dirname));
+// 🚀 ១. កំណត់ឱ្យ Server ស្គាល់ Folder public
+app.use(express.static(path.join(__dirname, 'public')));
 
+// 🚀 ២. ពេលគេចូល Link Render (/) ឱ្យវាផ្ញើဖိုင် public/index.html ទៅបង្ហាញ
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// បង្កើត folder សម្រាប់ទុកဖိုင် MP3 បណ្តោះអាសន្ន
 const downloadDir = path.join(__dirname, 'downloads');
 if (!fs.existsSync(downloadDir)) {
     fs.mkdirSync(downloadDir);
 }
 
-// Route បង្ហាញវេបសាយពេលចូល Link Render ផ្ទាល់
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// API Endpoint ទទួលលីងពីវេបសាយ
+// API Endpoint សម្រាប់បម្លែង
 app.post('/api/download', (req, res) => {
     const { url } = req.body;
 
