@@ -8,11 +8,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// បង្កើត folder សម្រាប់ទុកဖိုင် MP3 បណ្តោះអាសន្ន
+// 🚀 ឱ្យ Server អានဖိုင် HTML ផ្ទាល់ពីកន្លែងតែមួយ
+app.use(express.static(__dirname));
+
 const downloadDir = path.join(__dirname, 'downloads');
 if (!fs.existsSync(downloadDir)) {
     fs.mkdirSync(downloadDir);
 }
+
+// Route បង្ហាញវេបសាយពេលចូល Link Render ផ្ទាល់
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // API Endpoint ទទួលលីងពីវេបសាយ
 app.post('/api/download', (req, res) => {
@@ -26,7 +33,6 @@ app.post('/api/download', (req, res) => {
     const outputFilename = `audio_${timestamp}.mp3`;
     const outputPath = path.join(downloadDir, outputFilename);
 
-    // คำสั่ง yt-dlp សម្រាប់ទាញយក និងបម្លែងជា MP3 តែមួយមុខគត់
     const command = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${outputPath}" "${url}"`;
 
     console.log(`[INFO] កំពុងបម្លែងជា MP3៖ ${url}`);
@@ -37,10 +43,8 @@ app.post('/api/download', (req, res) => {
             return res.status(500).json({ error: 'មិនអាចបម្លែងជា MP3 បានទេ។ សូមពិនិត្យលីងម្តងទៀត!' });
         }
 
-        // ផ្ញើဖိုင် MP3 ទៅឱ្យ Frontend
         res.download(outputPath, outputFilename, (err) => {
             if (err) console.error(err);
-            // លុបဖိုင်ចេញពី Server វិញក្រោយ ១០ វិនាទី
             setTimeout(() => {
                 if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
             }, 10000);
