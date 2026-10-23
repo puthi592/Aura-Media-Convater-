@@ -1,26 +1,25 @@
-FROM node:18-slim
+FROM python:3.10-slim
 
-# ដំឡើង Python, ffmpeg និង curl សម្រាប់ yt-dlp
+# Install system dependencies, ffmpeg, and curl/nodejs
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
     ffmpeg \
     curl \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# ដំឡើង yt-dlp ជំនាន់ចុងក្រោយ
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
-    && chmod a+rx /usr/local/bin/yt-dlp
-
+# Set working directory
 WORKDIR /app
 
-# คัดចម្លង package.json និងដំឡើង Node modules
+# Copy package.json and install Node dependencies
 COPY package*.json ./
 RUN npm install
 
-# คัดចម្លងកូដទាំងអស់ចូល Server
+# Copy all project files
 COPY . .
 
-EXPOSE 5000
+# Upgrade yt-dlp to the latest version to bypass 429 / extraction issues
+RUN pip install --no-cache-dir --upgrade yt-dlp
 
+# Expose port and start the application
+EXPOSE 10000
 CMD ["node", "server.js"]
