@@ -1,3 +1,8 @@
+បាទ brother! នេះគឺជាកូដពេញលេញទាំងស្រុងនៃဖိုင် `public/index.html` ដែលត្រូវបានកែសម្រួលមុខងារ **`showDownloadResult`** រួចជាស្រេច ដើម្បីឱ្យពេលចុចប៊ូតុង **"ទាញយកឯកសារ (Save File)"** វាบังคับទាញយកទិន្នន័យ (Blob Download) ចូលក្នុងកុំព្យូទ័រដោយផ្ទាល់ មិនមែនគ្រាន់តែលោតទៅកាន់ URL វីដេអូនាយខាងក្រៅទៀតទេ។
+
+អ្នកអាច Copy កូដខាងក្រោមនេះ យកទៅ Paste ជំនួសកូដចាស់ក្នុង GitHub របស់អ្នកបានភ្លាមៗ៖
+
+```html
 <!DOCTYPE html>
 <html lang="km">
 <head>
@@ -228,7 +233,7 @@
                     </p>
                     <p id="resultFileName" class="text-xs text-slate-300 font-mono"></p>
                 </div>
-                <a id="downloadLink" download="converted_audio.wav" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition flex items-center space-x-2 shadow-lg">
+                <a id="downloadLink" href="#" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition flex items-center space-x-2 shadow-lg">
                     <i class="fa-solid fa-file-arrow-down"></i>
                     <span>ទាញយកឯកសារ (Save File)</span>
                 </a>
@@ -401,7 +406,6 @@
                 }
 
                 if (targetFormat === 'mp4' && selectedFile.type.startsWith('video')) {
-                    // Direct blob trigger
                     const blobUrl = URL.createObjectURL(selectedFile);
                     showDownloadResult(blobUrl, selectedFile.name, selectedFile.size);
                     return;
@@ -429,7 +433,6 @@
             const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
             updateProgress(60, 'កំពុងបម្លែងជាទម្រង់រលកធាតុអាកាស (Encoding AudioPCM)...');
 
-            // Encode to WAV Blob
             const wavBlob = bufferToWave(decodedBuffer, decodedBuffer.length);
             updateProgress(90, 'កំពុងរៀបចំឯកសារទាញយក (Finalizing Blob URL)...');
 
@@ -438,7 +441,7 @@
                 const outName = `converted_${Date.now()}.${format === 'mp3' ? 'wav' : format}`;
                 showDownloadResult(downloadUrl, outName, wavBlob.size);
                 updateProgress(100, 'បម្លែងបានជោគជ័យ!');
-                showAlert('ការបម្លែងជោគជ័យ! អ្នកអាចទាញយកឯកសារបានឥឡូវនេះ។', 'success');
+                showAlert('ការបម្លែងជោគជ័យ! អ្នកអាចទាញយកឯកសារได้ឥឡូវនេះ។', 'success');
             }, 500);
         }
 
@@ -455,20 +458,19 @@
             function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
             function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
 
-            // WAV Header
             setUint32(0x46464952);                         // "RIFF"
-            setUint32(length - 8);                         // file length - 8
+            setUint32(length - 8);                         
             setUint32(0x45564157);                         // "WAVE"
             setUint32(0x20746d66);                         // "fmt " chunk
-            setUint32(16);                                 // length = 16
-            setUint16(1);                                  // PCM (uncompressed)
+            setUint32(16);                                 
+            setUint16(1);                                  
             setUint16(numOfChan);
             setUint32(abuffer.sampleRate);
-            setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
-            setUint16(numOfChan * 2);                      // block-align
-            setUint16(16);                                 // 16-bit
+            setUint32(abuffer.sampleRate * 2 * numOfChan); 
+            setUint16(numOfChan * 2);                      
+            setUint16(16);                                 
             setUint32(0x61746164);                         // "data" chunk
-            setUint32(length - pos - 4);                   // chunk length
+            setUint32(length - pos - 4);                   
 
             for (i = 0; i < abuffer.numberOfChannels; i++)
                 channels.push(abuffer.getChannelData(i));
@@ -513,7 +515,7 @@
             document.getElementById('progressSection').classList.add('hidden');
         }
 
-        // Show Download Result
+        // FIXED: Show Download Result with blob fetch approach
         function showDownloadResult(url, filename, size) {
             const res = document.getElementById('downloadResult');
             const link = document.getElementById('downloadLink');
@@ -521,10 +523,33 @@
             const sizeLabel = document.getElementById('fileSizeInfo');
 
             res.classList.remove('hidden');
-            link.href = url;
-            link.download = filename;
             nameLabel.innerText = `${filename} ${size > 0 ? '(' + formatBytes(size) + ')' : ''}`;
             if (size > 0) sizeLabel.innerText = `ទំហំឯកសារសរុប: ${formatBytes(size)}`;
+
+            // Force blob download handling to bypass direct URL redirection issue
+            link.onclick = async (e) => {
+                e.preventDefault();
+                showAlert('កំពុងរៀបចំឯកសារដើម្បីទាញយក...', 'info');
+                try {
+                    let fetchUrl = url;
+                    if (!url.startsWith('blob:') && !url.startsWith('data:')) {
+                        const response = await fetch(url);
+                        const blob = await response.blob();
+                        fetchUrl = URL.createObjectURL(blob);
+                    }
+                    
+                    const tempLink = document.createElement('a');
+                    tempLink.href = fetchUrl;
+                    tempLink.download = filename;
+                    document.body.appendChild(tempLink);
+                    tempLink.click();
+                    document.body.removeChild(tempLink);
+                    showAlert('បានទាញយកឯកសារដោយជោគជ័យ!', 'success');
+                } catch (err) {
+                    // Fallback to opening link in new tab if CORS restricts fetching
+                    window.open(url, '_blank');
+                }
+            };
         }
 
         function hideResult() {
@@ -567,3 +592,5 @@
     </script>
 </body>
 </html>
+
+```
