@@ -1,4 +1,4 @@
-# ប្រើប្រាស់ Node.js official image ជា base ព្រោះ project យើងជា Node.js app
+# ប្រើប្រាស់ Node.js official image ជា base ព្រោះ project យើងជា Node.js/Express app
 FROM node:18-slim
 
 # ដំឡើង Python3, pip, និង ffmpeg សម្រាប់ yt-dlp
@@ -21,7 +21,7 @@ COPY . .
 # អាប់ដេត yt-dlp ឱ្យជា Version ចុងក្រោយបំផុត ដើម្បីការពារ Error 429
 RUN pip3 install --no-cache-dir --upgrade yt-dlp
 
-# เปิด Port 10000 សម្រាប់ Render
+# បើក Port 10000 សម្រាប់ Render
 EXPOSE 10000
 
 # ចាប់ផ្តើម Run Server
