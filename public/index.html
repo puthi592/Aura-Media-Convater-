@@ -157,8 +157,8 @@
             statusMsg.innerText = 'កំពុងតភ្ជាប់ទៅកាន់ Server ដើម្បីបម្លែងជា MP3...';
 
             try {
-                // 🚀 URL ថ្មីរបស់អ្នកត្រូវបានតភ្ជាប់រួចរាល់នៅទីនេះ
-                const BACKEND_URL = 'https://aura-media-convater-elso.onrender.com/api/download';
+                // 🚀 ใช้ Relative Path ត្រឹមត្រូវដើម្បីជៀសវាងបញ្ហា Failed to fetch
+                const BACKEND_URL = '/api/download';
 
                 const response = await fetch(BACKEND_URL, {
                     method: 'POST',
