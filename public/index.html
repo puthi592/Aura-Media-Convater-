@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <style>
         body {
             font-family: 'Kantumruy Pro', 'Inter', sans-serif;
@@ -46,7 +46,7 @@
 
     <!-- Main Container -->
     <div class="max-w-xl w-full glass-card rounded-3xl p-8 sm:p-10 space-y-8 relative overflow-hidden">
-        
+
         <!-- Decorative Background Glow -->
         <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
         <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -67,19 +67,20 @@
         <!-- Converter Form -->
         <div class="space-y-5 relative z-10">
             <div class="space-y-2">
-                <label class="block text-xs font-semibold uppercase tracking-wider text-indigo-400">
+                <label for="youtubeUrl" class="block text-xs font-semibold uppercase tracking-wider text-indigo-400">
                     <i class="fa-solid fa-link mr-1.5"></i> បញ្ចូលលីង YouTube របស់អ្នក
                 </label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">
                         <i class="fa-brands fa-youtube text-lg"></i>
                     </span>
-                    <input type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..." 
+                    <input type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=..."
+                        autocomplete="off"
                         class="w-full bg-slate-900/90 border border-slate-700/80 text-white text-sm rounded-2xl pl-12 pr-4 py-4 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition font-sans">
                 </div>
             </div>
-            
-            <button onclick="convertYouTubeToMp3()" id="convertBtn" class="glow-btn w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white font-bold py-4 rounded-2xl transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/30">
+
+            <button id="convertBtn" type="button" class="glow-btn w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white font-bold py-4 rounded-2xl transition flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/30">
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                 <span>ចាប់ផ្ដើមបម្លែងជា MP3 (Convert)</span>
             </button>
@@ -125,76 +126,120 @@
 
     <!-- Frontend Script -->
     <script>
+        const BACKEND_URL = '/api/download';
+        const REQUEST_TIMEOUT_MS = 12 * 60 * 1000;
+
+        const urlField = document.getElementById('youtubeUrl');
+        const alertBox = document.getElementById('alertBox');
+        const alertText = document.getElementById('alertText');
+        const progressSec = document.getElementById('progressSection');
+        const statusMsg = document.getElementById('statusMessage');
+        const downloadRes = document.getElementById('downloadResult');
+        const downloadLink = document.getElementById('downloadLink');
+        const convertBtn = document.getElementById('convertBtn');
+
+        let currentBlobUrl = null;
+
+        function showError(message) {
+            alertText.innerText = message;
+            alertBox.classList.remove('hidden');
+        }
+
+        function isYouTubeUrl(value) {
+            try {
+                const host = new URL(value).hostname.toLowerCase();
+                return ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be'].includes(host);
+            } catch {
+                return false;
+            }
+        }
+
         async function convertYouTubeToMp3() {
-            const urlInput = document.getElementById('youtubeUrl').value.trim();
-            const alertBox = document.getElementById('alertBox');
-            const alertText = document.getElementById('alertText');
-            const progressSec = document.getElementById('progressSection');
-            const statusMsg = document.getElementById('statusMessage');
-            const downloadRes = document.getElementById('downloadResult');
-            const convertBtn = document.getElementById('convertBtn');
+            const urlInput = urlField.value.trim();
 
             // Reset UI
             alertBox.classList.add('hidden');
             downloadRes.classList.add('hidden');
 
             if (!urlInput) {
-                alertText.innerText = 'សូមបញ្ចូលលីង YouTube ជាមុនសិន!';
-                alertBox.classList.remove('hidden');
+                showError('សូមបញ្ចូលលីង YouTube ជាមុនសិន!');
+                return;
+            }
+            if (!isYouTubeUrl(urlInput)) {
+                showError('សូមបញ្ចូលលីង YouTube ឱ្យបានត្រឹមត្រូវ!');
                 return;
             }
 
-            if (!urlInput.includes('youtube.com') && !urlInput.includes('youtu.be')) {
-                alertText.innerText = 'សូមបញ្ចូលលីង YouTube ឱ្យបានត្រឹមត្រូវ!';
-                alertBox.classList.remove('hidden');
-                return;
+            // Release the previous file from memory
+            if (currentBlobUrl) {
+                URL.revokeObjectURL(currentBlobUrl);
+                currentBlobUrl = null;
             }
 
-            // Disable button & Show progress
+            // Disable button & show progress
             convertBtn.disabled = true;
             convertBtn.classList.add('opacity-50', 'cursor-not-allowed');
             progressSec.classList.remove('hidden');
             statusMsg.innerText = 'កំពុងតភ្ជាប់ទៅកាន់ Server ដើម្បីបម្លែងជា MP3...';
 
-            try {
-                // 🚀 ใช้ Relative Path ត្រឹមត្រូវដើម្បីជៀសវាងបញ្ហា Failed to fetch
-                const BACKEND_URL = '/api/download';
+            // Free Render servers go to sleep, so the first request can be slow
+            const slowTimer = setTimeout(() => {
+                statusMsg.innerText = 'Server កំពុងភ្ញាក់ពីដេក ឬកំពុងបម្លែង... សូមរង់ចាំបន្តិច (អាចចំណាយពេល ១ នាទី)';
+            }, 8000);
 
+            const controller = new AbortController();
+            const abortTimer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+            try {
                 const response = await fetch(BACKEND_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: urlInput })
+                    body: JSON.stringify({ url: urlInput }),
+                    signal: controller.signal
                 });
 
                 if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error || 'មិនអាចទាញយកវីដេអូនេះបានទេ');
+                    let message = 'មិនអាចទាញយកវីដេអូនេះបានទេ';
+                    try {
+                        const errData = await response.json();
+                        if (errData && errData.error) message = errData.error;
+                    } catch (_) { /* response was not JSON */ }
+                    throw new Error(message);
                 }
 
                 statusMsg.innerText = 'កំពុងរៀបចំឯកសារ MP3...';
                 const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
+                currentBlobUrl = URL.createObjectURL(blob);
                 const fileName = `youtube_audio_${Date.now()}.mp3`;
 
-                // Show Download Link
+                // Show download link
                 progressSec.classList.add('hidden');
                 downloadRes.classList.remove('hidden');
                 document.getElementById('resultFileName').innerText = fileName;
-                
-                const downloadLink = document.getElementById('downloadLink');
-                downloadLink.href = blobUrl;
+                downloadLink.href = currentBlobUrl;
                 downloadLink.download = fileName;
 
             } catch (err) {
                 progressSec.classList.add('hidden');
-                alertText.innerText = 'មានបញ្ហា៖ ' + err.message;
-                alertBox.classList.remove('hidden');
+                if (err.name === 'AbortError') {
+                    showError('មានបញ្ហា៖ ចំណាយពេលយូរពេក។ សូមព្យាយាមម្តងទៀត។');
+                } else if (err instanceof TypeError) {
+                    showError('មានបញ្ហា៖ មិនអាចតភ្ជាប់ទៅ Server បានទេ។ សូមពិនិត្យអ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។');
+                } else {
+                    showError('មានបញ្ហា៖ ' + err.message);
+                }
             } finally {
-                // Re-enable button
+                clearTimeout(slowTimer);
+                clearTimeout(abortTimer);
                 convertBtn.disabled = false;
                 convertBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             }
         }
+
+        convertBtn.addEventListener('click', convertYouTubeToMp3);
+        urlField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !convertBtn.disabled) convertYouTubeToMp3();
+        });
     </script>
 </body>
 </html>
