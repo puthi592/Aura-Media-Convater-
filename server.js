@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -20,9 +20,11 @@ const downloadDir = path.join(os.tmpdir(), 'aura-downloads');
 fs.mkdirSync(downloadDir, { recursive: true });
 
 // Remove leftover files from previous runs
-for (const f of fs.readdirSync(downloadDir)) {
-    fs.rmSync(path.join(downloadDir, f), { force: true });
-}
+try {
+    for (const f of fs.readdirSync(downloadDir)) {
+        fs.rmSync(path.join(downloadDir, f), { force: true });
+    }
+} catch (e) {}
 
 // ---- Settings ----
 const MAX_CONCURRENT = 2;          // conversions at the same time
@@ -36,13 +38,23 @@ const ALLOWED_HOSTS = new Set([
     'youtu.be',
 ]);
 
-// Optional: YouTube often blocks cloud servers ("confirm you're not a bot").
-// Fix: export cookies.txt from a logged-in browser and add it in Render as a
-// Secret File named "cookies.txt" (it appears at /etc/secrets/cookies.txt).
+// Helper to find yt-dlp binary path safely across platforms
+function getYtDlpPath() {
+    if (process.env.YT_DLP_PATH) return process.env.YT_DLP_PATH;
+    try {
+        const cmd = process.platform === 'win32' ? 'where yt-dlp' : 'which yt-dlp';
+        return execSync(cmd).toString().trim();
+    } catch {
+        return 'yt-dlp'; // Fallback to global command
+    }
+}
+
+const YTDLP_BIN = getYtDlpPath();
+console.log(`[INFO] Using yt-dlp binary at: ${YTDLP_BIN}`);
+
 let cookiesPath = null;
 const secretCookies = process.env.YT_COOKIES_FILE || '/etc/secrets/cookies.txt';
 if (fs.existsSync(secretCookies)) {
-    // Render secret files are read-only, yt-dlp wants to write, so copy it.
     cookiesPath = path.join(os.tmpdir(), 'yt-cookies.txt');
     fs.copyFileSync(secretCookies, cookiesPath);
     console.log('[INFO] cookies file loaded');
@@ -72,7 +84,7 @@ function cleanup(base) {
 }
 
 function friendlyError(stderr) {
-    const s = stderr.toLowerCase();
+    const s = String(stderr || '').toLowerCase();
     if (s.includes('sign in to confirm') || s.includes('not a bot') || s.includes('cookies')) {
         return 'YouTube បានរារាំង Server នេះ។ សូមព្យាយាមម្តងទៀតពេលក្រោយ ឬបន្ថែម cookies។';
     }
@@ -101,11 +113,9 @@ app.post('/api/download', (req, res) => {
     const base = `audio_${id}`;
     const outputPath = path.join(downloadDir, `${base}.mp3`);
 
-    // Arguments are passed as an array (no shell), so the URL cannot inject commands.
     const args = [
         '--no-playlist',
         '--no-warnings',
-        '--js-runtimes', 'node',   // yt-dlp needs a JS runtime to read YouTube
         '-x',
         '--audio-format', 'mp3',
         '--audio-quality', '0',
@@ -118,7 +128,15 @@ app.post('/api/download', (req, res) => {
     console.log(`[INFO] Converting: ${url}`);
     activeJobs++;
 
-    const child = spawn('yt-dlp', args);
+    let child;
+    try {
+        child = spawn(YTDLP_BIN, args);
+    } catch (err) {
+        activeJobs--;
+        console.error('[ERROR] Failed to spawn yt-dlp:', err.message);
+        return res.status(500).json({ error: 'Server មិនទាន់ដំឡើង yt-dlp ត្រឹមត្រូវទេ។' });
+    }
+
     let stderr = '';
     let finished = false;
 
@@ -129,7 +147,7 @@ app.post('/api/download', (req, res) => {
 
     const timer = setTimeout(() => {
         console.error('[ERROR] timeout, killing yt-dlp');
-        child.kill('SIGKILL');
+        try { child.kill('SIGKILL'); } catch (e) {}
     }, TIMEOUT_MS);
 
     const finish = () => {
@@ -140,9 +158,10 @@ app.post('/api/download', (req, res) => {
         return true;
     };
 
-    // If the user closes the page, stop the work
     res.on('close', () => {
-        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+        if (child.exitCode === null && child.signalCode === null) {
+            try { child.kill('SIGKILL'); } catch (e) {}
+        }
     });
 
     child.on('error', (err) => {
@@ -150,7 +169,7 @@ app.post('/api/download', (req, res) => {
         console.error('[ERROR] cannot start yt-dlp:', err.message);
         cleanup(base);
         if (!res.headersSent) {
-            res.status(500).json({ error: 'Server មិនទាន់រួចរាល់ (yt-dlp មិនត្រូវបានដំឡើង)។' });
+            res.status(500).json({ error: 'Server មិនទាន់ដំឡើង yt-dlp ទេ។' });
         }
     });
 
@@ -161,7 +180,7 @@ app.post('/api/download', (req, res) => {
             console.error('[ERROR]', stderr.trim().split('\n').slice(-5).join('\n'));
             cleanup(base);
             if (res.headersSent || res.destroyed) return;
-            const tooLong = code === 0; // finished OK but no file = rejected by duration filter
+            const tooLong = code === 0;
             return res.status(tooLong ? 413 : 500).json({
                 error: tooLong
                     ? 'វីដេអូនេះវែងពេក (អតិបរមា ១ ម៉ោង)។'
